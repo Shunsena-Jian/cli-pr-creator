@@ -1,7 +1,7 @@
 import sys
 from .utils import print_colored, run_cmd, normalize_jira_link
-from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_authors, get_current_branch, get_commits_between, get_current_user_email
-from .github import check_existing_pr, create_pr
+from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_current_branch, get_commits_between, get_current_user_email
+from .github import check_existing_pr, create_pr, get_contributors, get_current_username
 from .ui import select_from_list, get_multiline_input, prompt_reviewers
 from .config import load_config
 from .naming import parse_branch_name
@@ -110,15 +110,20 @@ def main():
         final_description = desc_auto
 
     # Reviewers
-    authors = get_authors()
+    authors = get_contributors()
+    
     current_email = get_current_user_email()
+    current_handle = get_current_username()
     ignored_authors = config.get("ignored_authors", [])
     
     # Filter out current user and ignored authors
     filtered_authors = []
     for a in authors:
-        # Check current email
+        # Check current email (if author string contains it)
         if current_email and current_email in a:
+            continue
+        # Check current handle (exact match)
+        if current_handle and current_handle.lower() == a.lower():
             continue
         # Check ignored list (partial match)
         is_ignored = False
