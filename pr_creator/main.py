@@ -130,9 +130,17 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
         stage = select_from_list("What stage are you now?", stages)
         
         if "Child Hotfix" in stage:
+            # Source should be child hotfix (hotfix/0.0.0-foo)
+            # Target should be parent (hotfix/0.0.0)
+            if "-" in source:
+                parent_guess = source.split("-", 1)[0]
+                if parent_guess in remote_branches:
+                     return "Hotfix: Child", source, [parent_guess]
+            
             return "Hotfix: Child", source, ["parent_placeholder"]
             
         elif "Parent Hotfix -> develop" in stage:
+             # Source check: hotfix/0.0.0 (no extra dash usually, but lenient)
              return "Hotfix: Parent->Dev/Staging", source, ["develop", "staging_placeholder"]
              
         elif "Parent Hotfix -> alpha" in stage:
@@ -150,6 +158,7 @@ def resolve_placeholder_targets(targets: list[str], remote_branches: list[str]) 
     release_branches = [b for b in remote_branches if "release/" in b and not b.endswith("-a") and not b.endswith("-b")]
     alpha_branches = [b for b in remote_branches if b.endswith("-a")]
     beta_branches = [b for b in remote_branches if b.endswith("-b")]
+    hotfix_branches = [b for b in remote_branches if "hotfix/" in b]
     
     for t in targets:
         if t == "staging_placeholder":
@@ -185,8 +194,7 @@ def resolve_placeholder_targets(targets: list[str], remote_branches: list[str]) 
                  resolved.append(sel)
         elif t == "parent_placeholder":
              # Show all remote branches? Or just hotfixes?
-             hotfixes = [b for b in remote_branches if "hotfix/" in b]
-             all_opts = hotfixes if hotfixes else remote_branches
+             all_opts = hotfix_branches if hotfix_branches else remote_branches
              sel = select_from_list("Select Parent Branch:", all_opts)
              resolved.append(sel)
         else:
