@@ -1,4 +1,4 @@
-# CLI PR Creator
+# Qualitytrade Command Line Pull Request Creator
 
 A smart command-line interface tool to streamline and automate the creation of GitHub Pull Requests. It helps ensure correct branching strategies, auto-generates titles and descriptions from JIRA tickets and git history, and facilitates reviewer selection.
 
