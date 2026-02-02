@@ -140,10 +140,34 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
             return "Hotfix: Child", source, ["parent_placeholder"]
             
         elif "Parent Hotfix -> develop" in stage:
-             # Source check: hotfix/0.0.0 (no extra dash usually, but lenient)
+             # Source must be parent hotfix (hotfix/0.0.0) without extra dash suffix
+             # If user is on child, we should suggest parent
+             if "-" in source and source.startswith("hotfix/"):
+                  # Suggest stripping suffix
+                  parent_guess = source.split("-", 1)[0]
+                  if parent_guess in remote_branches:
+                       source = parent_guess
+                  else:
+                       # Parent not found? prompt
+                       candidates = [b for b in remote_branches if b.startswith("hotfix/") and "-" not in b.replace("hotfix/", "")]
+                       if candidates:
+                            source = select_from_list("Select Parent Hotfix Branch:", candidates)
+                       else:
+                            print_colored("Warning: No clean parent hotfix branch found.", "yellow")
+             
              return "Hotfix: Parent->Dev/Staging", source, ["develop", "staging_placeholder"]
              
         elif "Parent Hotfix -> alpha" in stage:
+             # Similar check
+             if "-" in source and source.startswith("hotfix/"):
+                  parent_guess = source.split("-", 1)[0]
+                  if parent_guess in remote_branches:
+                       source = parent_guess
+                  else:
+                       candidates = [b for b in remote_branches if b.startswith("hotfix/") and "-" not in b.replace("hotfix/", "")]
+                       if candidates:
+                            source = select_from_list("Select Parent Hotfix Branch:", candidates)
+             
              return "Hotfix: Parent->Alpha/Beta", source, ["alpha_placeholder", "beta_placeholder"]
 
     return "Manual", source, []
