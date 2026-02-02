@@ -341,11 +341,18 @@ Refer to the checklist [here](https://qualitytrade.atlassian.net/wiki/spaces/BDT
     base = target_branch.replace("origin/", "")
     head = source_branch.replace("origin/", "")
     
+    # Construct final title
+    # Format: "[{user_entered}][{from_branch}] -> [{to_branch}]"
+    if pr_title:
+        final_title = f"[{pr_title}][{head}] -> [{base}]"
+    else:
+        final_title = f"[{head}] -> [{base}]"
+    
     cmd = [
         "gh", "pr", "create",
         "--base", base,
         "--head", head,
-        "--title", pr_title,
+        "--title", final_title,
         "--body", full_body
     ]
     
