@@ -33,10 +33,10 @@ def parse_branch_name(branch: str):
     
     return ticket, title
 
-def prompt_strategy(current_branch: str) -> tuple[str, list[str]]:
+def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[str, str, list[str]]:
     """
     Ask user for strategy and Determine targets.
-    Returns: (strategy_name, list_of_target_branches)
+    Returns: (strategy_name, source_branch, list_of_target_branches)
     """
     strategies = [
         "Release Strategy",
@@ -47,46 +47,79 @@ def prompt_strategy(current_branch: str) -> tuple[str, list[str]]:
     print_colored("\nWhat's the current branching rules?", "cyan")
     choice = select_from_list("Select Strategy:", strategies)
     
+    source = current_branch
+    
     if choice == "Release Strategy":
         stages = [
             "feature or bugfix branch -> develop & staging",
             "staging -> alpha",
-            "alpha -> beta"
+            "alpha -> beta",
+            "beta -> live (main/master)"
         ]
         stage = select_from_list("What stage are you now?", stages)
         
         if "feature or bugfix" in stage:
-            # We need to find the specific staging branch? 
-            # Or just assume targets are 'develop' and 'release/x.y.z' if it exists?
-            # User request says: "develop & staging". Staging is release/0.0.0.
-            # We might need to ask user WHICH staging branch if multiple exist, or just 'staging' if they have a branch named staging (unlikely based on pattern).
-            # Let's filter remote branches for release/ pattern
-            return "Release: Feature", ["develop", "staging_placeholder"] 
+            return "Release: Feature", source, ["develop", "staging_placeholder"] 
             
         elif "staging -> alpha" in stage:
-            # Source should be release/x.y.z, Target release/x.y.z-a
-            # We assume current branch IS the source.
-            if not current_branch.startswith("release/"):
-                print_colored("Warning: Current branch does not look like a release branch.", "yellow")
+            # [Existing logic hidden]
+            # Source must be release/0.0.0
+            # Check if current matches
+            is_valid_staging = (
+                source.startswith("release/") and 
+                not source.endswith("-a") and 
+                not source.endswith("-b")
+            )
             
-            # Construct target: append -a
-            # But wait, patterns are: release/0.0.0 -> release/0.0.0-a
-            if current_branch.endswith("-a") or current_branch.endswith("-b"):
-                 print_colored("Warning: Current branch seems to be alpha or beta already.", "yellow")
+            if not is_valid_staging:
+                print_colored("Current branch is not a valid Staging branch (release/x.y.z).", "yellow")
+                # Find valid candidates
+                candidates = [b for b in remote_branches if "release/" in b and not b.endswith("-a") and not b.endswith("-b")]
+                if candidates:
+                    source = select_from_list("Select Source Staging Branch:", candidates)
+                else:
+                    print_colored("No Staging branches found remotely. Continuing with current...", "red")
             
-            target = f"{current_branch}-a"
-            return "Release: Staging->Alpha", [target]
+            target = f"{source}-a"
+            return "Release: Staging->Alpha", source, [target]
 
         elif "alpha -> beta" in stage:
-            # release/x.y.z-a -> release/x.y.z-b
-            if not current_branch.endswith("-a"):
-                 print_colored("Warning: Current branch does not look like an alpha branch (ending in -a).", "yellow")
-                 # Try to accommodate if they are on release/0.0.0 and want to go to beta directly? No, strict flow.
-                 # If they are on release/0.0.0-a, target is release/0.0.0-b
-                 target = current_branch.replace("-a", "-b")
+            # [Existing logic hidden]
+            # Source must be release/0.0.0-a
+            is_valid_alpha = source.startswith("release/") and source.endswith("-a")
+            
+            if not is_valid_alpha:
+                print_colored("Current branch is not a valid Alpha branch (release/x.y.z-a).", "yellow")
+                candidates = [b for b in remote_branches if b.startswith("release/") and b.endswith("-a")]
+                if candidates:
+                    source = select_from_list("Select Source Alpha Branch:", candidates)
+                else:
+                    print_colored("No Alpha branches found remotely. Continuing with current...", "red")
+
+            target = source.replace("-a", "-b")
+            return "Release: Alpha->Beta", source, [target]
+
+        elif "beta -> live" in stage:
+            # Source must be release/0.0.0-b
+            is_valid_beta = source.startswith("release/") and source.endswith("-b")
+            
+            if not is_valid_beta:
+                 print_colored("Current branch is not a valid Beta branch (release/x.y.z-b).", "yellow")
+                 candidates = [b for b in remote_branches if b.startswith("release/") and b.endswith("-b")]
+                 if candidates:
+                     source = select_from_list("Select Source Beta Branch:", candidates)
+                 else:
+                     print_colored("No Beta branches found remotely. Continuing with current...", "red")
+            
+            # Determine main/master
+            if "main" in remote_branches:
+                target = "main"
+            elif "master" in remote_branches:
+                target = "master"
             else:
-                 target = current_branch.replace("-a", "-b")
-            return "Release: Alpha->Beta", [target]
+                 target = select_from_list("Select Live Branch:", remote_branches)
+            
+            return "Release: Beta->Live", source, [target]
 
     elif choice == "Hotfix Strategy":
         stages = [
@@ -97,19 +130,15 @@ def prompt_strategy(current_branch: str) -> tuple[str, list[str]]:
         stage = select_from_list("What stage are you now?", stages)
         
         if "Child Hotfix" in stage:
-            # User picks parent
-            return "Hotfix: Child", ["parent_placeholder"]
+            return "Hotfix: Child", source, ["parent_placeholder"]
             
         elif "Parent Hotfix -> develop" in stage:
-             return "Hotfix: Parent->Dev/Staging", ["develop", "staging_placeholder"]
+             return "Hotfix: Parent->Dev/Staging", source, ["develop", "staging_placeholder"]
              
         elif "Parent Hotfix -> alpha" in stage:
-             # Need to find matching alpha/beta for this hotfix? 
-             # Or just generic alpha/beta?
-             # Usually hotfix applies to current version.
-             return "Hotfix: Parent->Alpha/Beta", ["alpha_placeholder", "beta_placeholder"]
+             return "Hotfix: Parent->Alpha/Beta", source, ["alpha_placeholder", "beta_placeholder"]
 
-    return "Manual", []
+    return "Manual", source, []
 
 def resolve_placeholder_targets(targets: list[str], remote_branches: list[str]) -> list[str]:
     """
@@ -190,7 +219,7 @@ def main():
     
     print(f"Current Branch (Source): {source_branch}")
     
-    strategy_name, target_candidates = prompt_strategy(source_branch)
+    strategy_name, source_branch, target_candidates = prompt_strategy(source_branch, remote_branches)
     
     targets = []
     if strategy_name == "Manual":
@@ -317,7 +346,8 @@ Refer to the checklist [here](https://qualitytrade.atlassian.net/wiki/spaces/BDT
         print(f"gh pr create --base {target} --head {source_branch} --title \"{final_title}\" ...")
         
         if shutil.which("gh"):
-            if input(f"Create PR to {target}? [y/N] ").strip().lower() == 'y':
+            user_conf = input(f"Create PR to {target}? [Y/n] ").strip().lower()
+            if user_conf != 'n':
                 try:
                     run_cmd(cmd)
                 except subprocess.CalledProcessError as e:
