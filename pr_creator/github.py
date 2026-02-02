@@ -5,10 +5,10 @@ import re
 import subprocess
 from .utils import run_cmd, print_colored
 
-def check_existing_pr(source_branch: str, target_branch: str):
-    """Check if an open PR already exists using 'gh'."""
+def check_existing_pr(source_branch: str, target_branch: str) -> bool:
+    """Check if an open PR already exists using 'gh'. Returns True if exists."""
     if shutil.which("gh") is None:
-        return
+        return False
 
     print_colored("Checking for existing PRs...", "cyan")
     # Branch names are already stripped of 'origin/'
@@ -24,10 +24,11 @@ def check_existing_pr(source_branch: str, target_branch: str):
             print_colored(f"\n[!] A PR already exists for {head} -> {base}:", "red")
             for pr in prs:
                 print_colored(f"- {pr.get('title')} ({pr.get('url')})", "yellow")
-            print_colored("\nAborting creation process.", "red")
-            sys.exit(0)
+            print_colored("Skipping creation for this target.", "yellow")
+            return True
         else:
             print_colored("No existing PR found. Proceeding...", "green")
+            return False
 
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         print_colored("Warning: Failed to check for existing PRs.", "yellow")

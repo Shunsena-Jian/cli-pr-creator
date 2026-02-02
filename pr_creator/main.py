@@ -124,8 +124,7 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
     elif choice == "Hotfix Strategy":
         stages = [
             "Child Hotfix -> Parent Hotfix",
-            "Parent Hotfix -> develop & staging",
-            "Parent Hotfix -> alpha & beta"
+            "Parent Hotfix -> All (Dev/Staging/Alpha/Beta/Live)"
         ]
         stage = select_from_list("What stage are you now?", stages)
         
@@ -139,7 +138,7 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
             
             return "Hotfix: Child", source, ["parent_placeholder"]
             
-        elif "Parent Hotfix -> develop" in stage:
+        elif "Parent Hotfix -> All" in stage:
              # Source must be parent hotfix (hotfix/0.0.0) without extra dash suffix
              is_valid_parent = source.startswith("hotfix/") and "-" not in source.replace("hotfix/", "")
              
@@ -159,31 +158,11 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
                        else:
                             print_colored("Warning: No clean parent hotfix branch found.", "yellow")
              
-             return "Hotfix: Parent->Dev/Staging", source, ["develop", "staging_placeholder"]
-             
-        elif "Parent Hotfix -> alpha" in stage:
-             # Similar check
-             is_valid_parent = source.startswith("hotfix/") and "-" not in source.replace("hotfix/", "")
-             
-             if not is_valid_parent:
-                  if "-" in source and source.startswith("hotfix/"):
-                       parent_guess = source.split("-", 1)[0]
-                       if parent_guess in remote_branches:
-                            source = parent_guess
-                            is_valid_parent = True
-                  
-                  if not is_valid_parent:
-                       candidates = [b for b in remote_branches if b.startswith("hotfix/") and "-" not in b.replace("hotfix/", "")]
-                       if candidates:
-                            source = select_from_list("Select Parent Hotfix Branch:", candidates)
-                       else:
-                            print_colored("Warning: No clean parent hotfix branch found.", "yellow")
-             
-             return "Hotfix: Parent->Alpha/Beta", source, ["alpha_placeholder", "beta_placeholder"]
+             return "Hotfix: Parent->All", source, ["develop", "staging_placeholder", "alpha_placeholder", "beta_placeholder", "default_placeholder"]
 
     return "Manual", source, []
 
-def resolve_placeholder_targets(targets: list[str], remote_branches: list[str]) -> list[str]:
+def resolve_placeholder_targets(targets: list[str], remote_branches: list[str], default_target: str = "main") -> list[str]:
     """
     Replace placeholders like 'staging_placeholder' with actual branches selected by user.
     """
@@ -232,6 +211,8 @@ def resolve_placeholder_targets(targets: list[str], remote_branches: list[str]) 
              all_opts = hotfix_branches if hotfix_branches else remote_branches
              sel = select_from_list("Select Parent Branch:", all_opts)
              resolved.append(sel)
+        elif t == "default_placeholder":
+             resolved.append(default_target)
         else:
             resolved.append(t)
             
@@ -270,7 +251,7 @@ def main():
         target_candidates = [] # Logic handled below in manual loop
     else:
         # Resolve placeholders
-        targets = resolve_placeholder_targets(target_candidates, remote_branches)
+        targets = resolve_placeholder_targets(target_candidates, remote_branches, default_target)
     
     # If manual, we ask for target
     if strategy_name == "Manual" or not targets:
@@ -358,7 +339,8 @@ def main():
         print_colored(f"\n--- Preparing PR for {target} ---", "cyan")
         
         # Check existing
-        check_existing_pr(source_branch, target)
+        if check_existing_pr(source_branch, target):
+            continue
         
         # Construct Title
         if final_title_base:
