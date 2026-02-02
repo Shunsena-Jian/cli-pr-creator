@@ -6,6 +6,7 @@ from .ui import select_from_list, get_multiline_input, prompt_reviewers
 from .config import load_config
 from .naming import parse_branch_name
 from .strategy import prompt_strategy, resolve_placeholder_targets
+from .templates import PR_TEMPLATE
 
 def main():
     print_colored("Welcome to this CLI PR Creator", "green")
@@ -154,20 +155,7 @@ def main():
             final_title = f"[{source_branch}] -> [{target}]"
         
         # Template
-        pr_template = """**JIRA Ticket/Release:**
-{tickets}
-
-<br>**Description:**
-{description}
-
-<br>**Checklist:**
-
-Refer to the checklist [here](https://qualitytrade.atlassian.net/wiki/spaces/BDT/pages/2708307969/Pull+request+guidelines)
-
-- [ ] Checklist covered"""
-    
-        body = pr_template.format(tickets=jira_section, description=final_description)
-
+        body = PR_TEMPLATE.format(tickets=jira_section, description=final_description)
         create_pr(source_branch, target, final_title, body, reviewers)
 
 if __name__ == "__main__":
