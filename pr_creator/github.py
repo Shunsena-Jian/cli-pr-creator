@@ -4,7 +4,7 @@ import json
 import re
 import subprocess
 from .utils import run_cmd, print_colored
-from .config import load_config
+from .config import load_config, add_to_user_map
 def check_existing_pr(source_branch: str, target_branch: str) -> bool:
     """Check if an open PR already exists using 'gh'. Returns True if exists."""
     if shutil.which("gh") is None:
@@ -70,6 +70,7 @@ def resolve_handle(git_identity: str) -> str:
     print_colored(f"Could not automatically resolve GitHub username for email: {email}", "yellow")
     user_input = input(f"Please enter GitHub username for {email} (or leave empty to skip): ").strip()
     if user_input:
+        add_to_user_map(email, user_input)
         return user_input
     
     return None 

@@ -112,11 +112,26 @@ def main():
     # Reviewers
     authors = get_authors()
     current_email = get_current_user_email()
-    if current_email:
-        # Filter out current user if email matches
-        authors = [a for a in authors if current_email not in a]
-        
-    reviewers = prompt_reviewers(authors)
+    ignored_authors = config.get("ignored_authors", [])
+    
+    # Filter out current user and ignored authors
+    filtered_authors = []
+    for a in authors:
+        # Check current email
+        if current_email and current_email in a:
+            continue
+        # Check ignored list (partial match)
+        is_ignored = False
+        for ignored in ignored_authors:
+            if ignored in a:
+                is_ignored = True
+                break
+        if is_ignored:
+            continue
+            
+        filtered_authors.append(a)
+    
+    reviewers = prompt_reviewers(filtered_authors)
 
     # --- 3. Execution Loop for Targets ---
     
