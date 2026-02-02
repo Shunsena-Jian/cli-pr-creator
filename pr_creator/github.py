@@ -32,6 +32,7 @@ def check_existing_pr(source_branch: str, target_branch: str) -> bool:
 
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         print_colored("Warning: Failed to check for existing PRs.", "yellow")
+        return False
 
 def resolve_handle(git_identity: str) -> str:
     """Resolve 'Name <email>' to GitHub username via gh api."""
@@ -53,3 +54,36 @@ def resolve_handle(git_identity: str) -> str:
     except Exception:
         pass
     return email 
+
+def create_pr(source: str, target: str, title: str, body: str, reviewers: list[str] = None):
+    """
+    Constructs and executes the gh pr create command.
+    """
+    cmd = [
+        "gh", "pr", "create",
+        "--base", target,
+        "--head", source,
+        "--title", title,
+        "--body", body
+    ]
+    
+    if reviewers:
+         for r in reviewers:
+            handle = resolve_handle(r)
+            cmd.extend(["--reviewer", handle])
+
+    print_colored("Generated Command:", "cyan")
+    # Masking body for display brevity if needed, but here we just show it all or summary
+    # Just show the command as a string roughly
+    cmd_str = f"gh pr create --base {target} --head {source} --title \"{title}\" ..."
+    print(cmd_str)
+    
+    if shutil.which("gh"):
+        user_conf = input(f"Create PR to {target}? [Y/n] ").strip().lower()
+        if user_conf != 'n':
+            try:
+                run_cmd(cmd)
+            except subprocess.CalledProcessError as e:
+                print_colored(f"Command failed with exit code {e.returncode}", "red")
+    else:
+         print_colored("gh CLI not found.", "yellow")
