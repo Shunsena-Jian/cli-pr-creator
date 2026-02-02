@@ -225,7 +225,19 @@ def main():
     # Command construction
     gh_installed = shutil.which("gh") is not None
     
-    full_body = f"{description}\n\nJira: {jira_info}"
+    pr_template = """**JIRA Ticket/Release:**
+{tickets}
+
+<br>**Description:**
+{description}
+
+<br>**Checklist:**
+
+Refer to the checklist [here](https://qualitytrade.atlassian.net/wiki/spaces/BDT/pages/2708307969/Pull+request+guidelines)
+
+- [] Checklist covered"""
+
+    full_body = pr_template.format(tickets=jira_info, description=description)
     
     # Cleaning branch names 'origin/feat' -> 'feat'
     base = target_branch.replace("origin/", "")
