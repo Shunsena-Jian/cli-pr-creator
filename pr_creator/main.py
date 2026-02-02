@@ -265,6 +265,15 @@ def main():
     if strategy_name == "Manual" or not targets:
         if strategy_name != "Manual":
             print_colored("No valid targets determined from strategy. Reverting to manual selection.", "yellow")
+        
+        # Explicitly ask for Source if manual
+        if strategy_name == "Manual":
+            if remote_branches:
+                # Default to current if available
+                source_branch = select_from_list(f"Source Branch? (Current: {source_branch})", remote_branches)
+            else:
+                source_branch = input(f"Source Branch? (Default: {source_branch}) ").strip() or source_branch
+
         t_choice = select_from_list(f"Target Branch? (Default: {default_target})", remote_branches)
         targets = [t_choice]
 
