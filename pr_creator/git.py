@@ -34,21 +34,6 @@ def get_remote_branches() -> list[str]:
     except subprocess.CalledProcessError:
         return []
 
-def get_authors() -> list[str]:
-    """Get a list potential reviewers from git shortlog."""
-    try:
-        # -s: summary, -n: numbered sort, -e: email
-        result = run_cmd(["git", "shortlog", "-sne", "--all"], capture=True)
-        authors = []
-        for line in result.stdout.splitlines():
-            parts = line.strip().split("\t", 1)
-            if len(parts) == 2:
-                authors.append(parts[1])
-        return authors
-        return []
-    except subprocess.CalledProcessError:
-        return []
-
 def get_current_branch() -> str:
     """Get the name of the currently checked out branch."""
     try:
@@ -69,3 +54,10 @@ def get_commits_between(base: str, head: str) -> list[str]:
     except subprocess.CalledProcessError:
         return []
 
+def get_current_user_email() -> str:
+    """Get the current git user's email."""
+    try:
+        result = run_cmd(["git", "config", "user.email"], capture=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return ""
