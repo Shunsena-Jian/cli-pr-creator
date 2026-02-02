@@ -110,3 +110,36 @@ def create_pr(source: str, target: str, title: str, body: str, reviewers: list[s
                 print_colored(f"Command failed with exit code {e.returncode}", "red")
     else:
          print_colored("gh CLI not found.", "yellow")
+
+def get_contributors() -> list[str]:
+    """
+    Fetch list of contributors (handles) from GitHub API.
+    Uses :owner and :repo placeholders which gh CLI resolves from current directory.
+    """
+    if shutil.which("gh") is None:
+        return []
+        
+    try:
+        # Fetch contributors, returning just their login (handle)
+        cmd = ["gh", "api", "repos/:owner/:repo/contributors", "--jq", ".[].login"]
+        result = run_cmd(cmd, capture=True)
+        contributors = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return contributors
+    except (subprocess.CalledProcessError, Exception):
+        # Fail silently or log if needed, fallback will handle it
+        return []
+
+def get_current_username() -> str:
+    """Get the currently authenticated GitHub username."""
+    if shutil.which("gh") is None:
+        return ""
+    try:
+        # Check cached auth status or api user
+        # 'gh api user' is reliable
+        cmd = ["gh", "api", "user", "--jq", ".login"]
+        result = run_cmd(cmd, capture=True)
+        return result.stdout.strip()
+    except Exception:
+        return ""
+
+
