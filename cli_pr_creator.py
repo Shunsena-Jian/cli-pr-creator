@@ -206,8 +206,15 @@ def main():
     pr_title = input("> ").strip()
 
     # 4. Jira
-    print_colored("\nWhat are the JIRA Tickets or JIRA Release (separated by comma)?", "cyan")
-    jira_info = input("> ").strip()
+    print_colored("\nWhat are the JIRA Tickets or JIRA Release? (Enter multiple lines, press Enter to finish)", "cyan")
+    jira_lines = []
+    while True:
+        line = input("> ").strip()
+        if not line:
+            break
+        jira_lines.append(line)
+    
+    jira_info = "\n".join(jira_lines) if jira_lines else "None"
 
     # 5. Description
     print_colored("\nThe PR Description? (Enter multiple lines, press Enter on empty line to finish)", "cyan")
@@ -259,19 +266,15 @@ def main():
             if selected_reviewers:
                 print_colored(f"Current reviewers: {', '.join(selected_reviewers)}", "green")
             
-            user_input = input("\nType reviewer name/number to add, 'l' to list, 'd' when done: ").strip()
-            
-            if user_input.lower() in ('d', 'done') or user_input == '':
-                if not selected_reviewers and user_input == '':
-                     pass
-                
-                if user_input.lower() in ('d', 'done'):
-                    break
-                if user_input == '' and selected_reviewers:
-                    break
-                if user_input == '' and not selected_reviewers:
-                     # Allow skipping reviewers
-                     break
+        user_input = input("\nType reviewer name/number to add (Press Enter to finish): ").strip()
+        
+        if not user_input:
+             # Stop if empty (Enter pressed directly)
+             break
+
+        # Legacy 'd' check just in case, or list
+        if user_input.lower() in ('d', 'done'):
+            break
             
             if user_input.lower() in ('l', 'list'):
                  for idx, a in enumerate(available_authors):
