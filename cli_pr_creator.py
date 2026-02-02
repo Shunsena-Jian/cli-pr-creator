@@ -104,6 +104,39 @@ def select_from_list(prompt: str, choices: list[str]) -> str:
         else:
             print_colored("Invalid selection, try again.", "red")
 
+def check_existing_pr(source_branch: str, target_branch: str):
+    """Check if an open PR already exists for these branches."""
+    # Clean branch names for gh (remove origin/)
+    head = source_branch.replace("origin/", "").strip()
+    base = target_branch.replace("origin/", "").strip()
+    
+    if shutil.which("gh") is None:
+        return # Cannot check without gh
+
+    print_colored("Checking for existing PRs...", "cyan")
+    try:
+        # gh pr list --head <head> --base <base> --state open --json url,title
+        # Note: --head needs to be just the branch name usually, or owner:branch
+        # If the user is running this in the repo, branch name usually suffices.
+        cmd = ["gh", "pr", "list", "--head", head, "--base", base, "--state", "open", "--json", "url,title"]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        import json
+        prs = json.loads(result.stdout)
+        
+        if prs:
+            print_colored(f"\n[!] A PR already exists for {head} -> {base}:", "red")
+            for pr in prs:
+                print_colored(f"- {pr.get('title')} ({pr.get('url')})", "yellow")
+            print_colored("\nAborting creation process.", "red")
+            sys.exit(0)
+        else:
+            print_colored("No existing PR found. Proceeding...", "green")
+
+    except subprocess.CalledProcessError:
+        print_colored("Warning: Failed to check for existing PRs (gh command failed).", "yellow")
+    except json.JSONDecodeError:
+         print_colored("Warning: Failed to parse gh output.", "yellow")
+
 def main():
     print_colored("Welcome to this CLI PR Creator", "green")
     print_colored("="*30, "green")
@@ -131,6 +164,9 @@ def main():
     target_branch = select_from_list("To which remote branch?", remote_branches)
     print(f"Selected: {target_branch}")
 
+    # Check for existing PR
+    check_existing_pr(source_branch, target_branch)
+
     # 3. Title
     print_colored("\nWhat is the PR title?", "cyan")
     pr_title = input("> ").strip()
@@ -140,8 +176,21 @@ def main():
     jira_info = input("> ").strip()
 
     # 5. Description
-    print_colored("\nThe PR Description?", "cyan")
-    description = input("> ").strip()
+    print_colored("\nThe PR Description? (Enter multiple lines, press Enter on empty line to finish)", "cyan")
+    description_lines = []
+    while True:
+        line = input("> ").strip()
+        if not line:
+            break
+        description_lines.append(line)
+    
+    if description_lines:
+        # Join with newlines and prefix with bullet
+        # The template already has a newline before {description} if we want strictly 
+        # but let's make sure it looks good.
+        description = "\n".join([f"- {line}" for line in description_lines])
+    else:
+        description = "No description provided."
 
     # 6. Reviewers
     authors = get_authors()
