@@ -112,6 +112,13 @@ def main():
         print_colored("Error: This command must be executed in a git repository.", "red")
         sys.exit(1)
 
+    # Fetch latest from origin
+    print_colored("Fetching latest branches from origin...", "cyan")
+    try:
+        subprocess.run(["git", "fetch", "origin"], check=False) # Don't crash if offline
+    except Exception:
+        print_colored("Warning: Failed to fetch from origin. Using cached branches.", "yellow")
+
     # 1. Source Branch
     remote_branches = get_remote_branches()
     if not remote_branches:
@@ -160,9 +167,6 @@ def main():
         if user_input.lower() == 'd' or user_input == '':
             if not selected_reviewers and user_input == '':
                  # If empty input on first try, maybe they don't want reviewers or just pressed enter?
-                 # Let's assume 'd' is explicit. If just enter, maybe ignore or ask.
-                 # Let's require 'd' or 'done' to finish if they have added none? 
-                 # Or just break.
                  pass
             
             if user_input.lower() == 'd':
@@ -182,27 +186,41 @@ def main():
              continue
         
         # Match logic
-        # Is digit? -> index in available_authors (displayed via 'l' logic implies stable ordering?? 
-        # Actually 'l' showed based on current filter. 
-        # Let's rely on name matching mostly or list full if requested.
+        matched_author = None
         
-        # To make it simple: Just fuzzy match from full list
-        matches = [a for a in available_authors if user_input.lower() in a.lower()]
+        # Check if number
+        if user_input.isdigit():
+            idx = int(user_input) - 1
+            if 0 <= idx < len(available_authors):
+                matched_author = available_authors[idx]
         
-        if len(matches) == 1:
-            selected_reviewers.append(matches[0])
-            print_colored(f"Added {matches[0]}", "green")
-        elif len(matches) > 1:
-            # Check for exact match
-            exact = [a for a in matches if a.lower() == user_input.lower()]
-            if len(exact) == 1:
-                selected_reviewers.append(exact[0])
-                print_colored(f"Added {exact[0]}", "green")
+        if not matched_author:
+            # Fuzzy match from full list
+            matches = [a for a in available_authors if user_input.lower() in a.lower()]
+            
+            if len(matches) == 1:
+                matched_author = matches[0]
+            elif len(matches) > 1:
+                # Check for exact match
+                exact = [a for a in matches if a.lower() == user_input.lower()]
+                if len(exact) == 1:
+                    matched_author = exact[0]
+                else:
+                    print_colored(f"Multiple matches found: {', '.join(matches[:5])}...", "yellow")
+                    continue
             else:
-                print_colored(f"Multiple matches found: {', '.join(matches[:5])}...", "yellow")
-                # optional: let them pick from narrowed list? For now just ask to be specific.
-        else:
-            print_colored("No match found.", "red")
+                # If it wasn't a digit and no matches
+                # If the user typed a digit that was out of bounds, we fall here too if we didn't check digit specifically earlier with explicit fail
+                # But we did check digit above.
+                if user_input.isdigit():
+                     print_colored("Invalid number selection.", "red")
+                else:
+                     print_colored("No match found.", "red")
+                continue
+
+        if matched_author:
+            selected_reviewers.append(matched_author)
+            print_colored(f"Added {matched_author}", "green")
 
     # Command construction
     gh_installed = shutil.which("gh") is not None
