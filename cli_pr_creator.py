@@ -330,7 +330,7 @@ def main():
 
 Refer to the checklist [here](https://qualitytrade.atlassian.net/wiki/spaces/BDT/pages/2708307969/Pull+request+guidelines)
 
-- [] Checklist covered"""
+- [ ] Checklist covered"""
 
     full_body = pr_template.format(tickets=jira_info, description=description)
     
