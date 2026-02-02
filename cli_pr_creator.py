@@ -2,8 +2,25 @@
 import sys
 import subprocess
 import shutil
+import readline
 
 # --- Helpers ---
+class SimpleCompleter:
+    def __init__(self, options):
+        self.options = sorted(options)
+        self.matches = []
+        
+    def complete(self, text, state):
+        if state == 0:
+            if text:
+                # Substring match, case-insensitive
+                self.matches = [s for s in self.options if s and text.lower() in s.lower()]
+            else:
+                self.matches = self.options[:]
+        try:
+            return self.matches[state]
+        except IndexError:
+            return None
 
 def print_colored(text: str, color: str = "green"):
     """
@@ -65,6 +82,7 @@ def select_from_list(prompt: str, choices: list[str]) -> str:
     """
     Presents a numbered list of choices to the user and returns the selected item.
     Also allows typing the item directly if it matches (fuzzy or exact).
+    Supports Tab-completion.
     """
     print_colored(f"\n{prompt}", "cyan")
     if not choices:
@@ -78,31 +96,47 @@ def select_from_list(prompt: str, choices: list[str]) -> str:
             break
         print(f"[{idx+1}] {choice}")
     
-    while True:
-        user_input = input("Select number or type name: ").strip()
-        if not user_input:
-            continue
+    # Setup autocomplete
+    completer = SimpleCompleter(choices)
+    readline.set_completer(completer.complete)
+    
+    # Bind tab for both Mac (libedit) and Linux (GNU readline)
+    if 'libedit' in readline.__doc__:
+        readline.parse_and_bind("bind ^I rl_complete")
+    else:
+        readline.parse_and_bind("tab: complete")
+
+    print_colored("(Tip: You can use TAB to autocomplete branch names)", "bold")
+    
+    try:
+        while True:
+            user_input = input("Select number or type name: ").strip()
+            if not user_input:
+                continue
+                
+            # Check if number
+            if user_input.isdigit():
+                idx = int(user_input) - 1
+                if 0 <= idx < len(choices):
+                    return choices[idx]
             
-        # Check if number
-        if user_input.isdigit():
-            idx = int(user_input) - 1
-            if 0 <= idx < len(choices):
-                return choices[idx]
-        
-        # Check if exact match or fuzzy
-        # Priority: Exact match -> Contains
-        matches = [c for c in choices if c == user_input]
-        if len(matches) == 1:
-            return matches[0]
-            
-        # Fuzzy/Contains
-        matches = [c for c in choices if user_input.lower() in c.lower()]
-        if len(matches) == 1:
-            return matches[0]
-        elif len(matches) > 1:
-            print_colored(f"Ambiguous match: {', '.join(matches[:5])}...", "yellow")
-        else:
-            print_colored("Invalid selection, try again.", "red")
+            # Check if exact match or fuzzy
+            # Priority: Exact match -> Contains
+            matches = [c for c in choices if c == user_input]
+            if len(matches) == 1:
+                return matches[0]
+                
+            # Fuzzy/Contains
+            matches = [c for c in choices if user_input.lower() in c.lower()]
+            if len(matches) == 1:
+                return matches[0]
+            elif len(matches) > 1:
+                print_colored(f"Ambiguous match: {', '.join(matches[:5])}...", "yellow")
+            else:
+                print_colored("Invalid selection, try again.", "red")
+    finally:
+        # Cleanup readline to avoid messing up subsequent inputs
+        readline.set_completer(None)
 
 def check_existing_pr(source_branch: str, target_branch: str):
     """Check if an open PR already exists for these branches."""
@@ -197,79 +231,91 @@ def main():
     selected_reviewers = []
     
     print_colored("\nWho are the reviewers?", "cyan")
+    print_colored("(Tip: You can use TAB to autocomplete reviewer names)", "bold")
+    
     if not authors:
         print_colored("Could not find authors in git log.", "yellow")
     else:
         print(f"Found {len(authors)} authors in history.")
 
-    while True:
-        # Filter out already selected
-        available_authors = [a for a in authors if a not in selected_reviewers]
-        
-        # We can't use select_from_list easily in a loop with "Done" option integrated cleanly 
-        # without modifying input logic. Let's do a custom loop here.
-        if selected_reviewers:
-            print_colored(f"Current reviewers: {', '.join(selected_reviewers)}", "green")
-        
-        user_input = input("\nType reviewer name/number to add, 'l' to list, 'd' when done: ").strip()
-        
-        if user_input.lower() == 'd' or user_input == '':
-            if not selected_reviewers and user_input == '':
-                 # If empty input on first try, maybe they don't want reviewers or just pressed enter?
-                 pass
-            
-            if user_input.lower() == 'd':
-                break
-            if user_input == '' and selected_reviewers:
-                break
-            if user_input == '' and not selected_reviewers:
-                 # Allow skipping reviewers
-                 break
-        
-        if user_input.lower() == 'l':
-             for idx, a in enumerate(available_authors):
-                 if idx >= 20: 
-                     print(f"... {len(available_authors)-20} more")
-                     break
-                 print(f"[{idx+1}] {a}")
-             continue
-        
-        # Match logic
-        matched_author = None
-        
-        # Check if number
-        if user_input.isdigit():
-            idx = int(user_input) - 1
-            if 0 <= idx < len(available_authors):
-                matched_author = available_authors[idx]
-        
-        if not matched_author:
-            # Fuzzy match from full list
-            matches = [a for a in available_authors if user_input.lower() in a.lower()]
-            
-            if len(matches) == 1:
-                matched_author = matches[0]
-            elif len(matches) > 1:
-                # Check for exact match
-                exact = [a for a in matches if a.lower() == user_input.lower()]
-                if len(exact) == 1:
-                    matched_author = exact[0]
-                else:
-                    print_colored(f"Multiple matches found: {', '.join(matches[:5])}...", "yellow")
-                    continue
-            else:
-                # If it wasn't a digit and no matches
-                # If the user typed a digit that was out of bounds, we fall here too if we didn't check digit specifically earlier with explicit fail
-                # But we did check digit above.
-                if user_input.isdigit():
-                     print_colored("Invalid number selection.", "red")
-                else:
-                     print_colored("No match found.", "red")
-                continue
+    # Bind tab for completion once here (or ensure it's bound)
+    if 'libedit' in readline.__doc__:
+        readline.parse_and_bind("bind ^I rl_complete")
+    else:
+        readline.parse_and_bind("tab: complete")
 
-        if matched_author:
-            selected_reviewers.append(matched_author)
-            print_colored(f"Added {matched_author}", "green")
+    try:
+        while True:
+            # Filter out already selected
+            available_authors = [a for a in authors if a not in selected_reviewers]
+            
+            # Update completer with current available authors
+            # Add 'done' and 'list' to options for convenience
+            completer = SimpleCompleter(available_authors + ['done', 'list'])
+            readline.set_completer(completer.complete)
+
+            # We can't use select_from_list easily in a loop with "Done" option integrated cleanly 
+            # without modifying input logic. Let's do a custom loop here.
+            if selected_reviewers:
+                print_colored(f"Current reviewers: {', '.join(selected_reviewers)}", "green")
+            
+            user_input = input("\nType reviewer name/number to add, 'l' to list, 'd' when done: ").strip()
+            
+            if user_input.lower() in ('d', 'done') or user_input == '':
+                if not selected_reviewers and user_input == '':
+                     pass
+                
+                if user_input.lower() in ('d', 'done'):
+                    break
+                if user_input == '' and selected_reviewers:
+                    break
+                if user_input == '' and not selected_reviewers:
+                     # Allow skipping reviewers
+                     break
+            
+            if user_input.lower() in ('l', 'list'):
+                 for idx, a in enumerate(available_authors):
+                     if idx >= 20: 
+                         print(f"... {len(available_authors)-20} more")
+                         break
+                     print(f"[{idx+1}] {a}")
+                 continue
+            
+            # Match logic
+            matched_author = None
+            
+            # Check if number
+            if user_input.isdigit():
+                idx = int(user_input) - 1
+                if 0 <= idx < len(available_authors):
+                    matched_author = available_authors[idx]
+            
+            if not matched_author:
+                # Fuzzy match from full list
+                matches = [a for a in available_authors if user_input.lower() in a.lower()]
+                
+                if len(matches) == 1:
+                    matched_author = matches[0]
+                elif len(matches) > 1:
+                    # Check for exact match
+                    exact = [a for a in matches if a.lower() == user_input.lower()]
+                    if len(exact) == 1:
+                        matched_author = exact[0]
+                    else:
+                        print_colored(f"Multiple matches found: {', '.join(matches[:5])}...", "yellow")
+                        continue
+                else:
+                    if user_input.isdigit():
+                         print_colored("Invalid number selection.", "red")
+                    else:
+                         print_colored("No match found.", "red")
+                    continue
+
+            if matched_author:
+                selected_reviewers.append(matched_author)
+                print_colored(f"Added {matched_author}", "green")
+    finally:
+        readline.set_completer(None)
 
     # Command construction
     gh_installed = shutil.which("gh") is not None
