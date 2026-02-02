@@ -1,6 +1,6 @@
 import sys
 from .utils import print_colored, run_cmd, normalize_jira_link
-from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_authors, get_current_branch, get_commits_between
+from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_authors, get_current_branch, get_commits_between, get_current_user_email
 from .github import check_existing_pr, create_pr
 from .ui import select_from_list, get_multiline_input, prompt_reviewers
 from .config import load_config
@@ -111,7 +111,27 @@ def main():
 
     # Reviewers
     authors = get_authors()
-    reviewers = prompt_reviewers(authors)
+    current_email = get_current_user_email()
+    ignored_authors = config.get("ignored_authors", [])
+    
+    # Filter out current user and ignored authors
+    filtered_authors = []
+    for a in authors:
+        # Check current email
+        if current_email and current_email in a:
+            continue
+        # Check ignored list (partial match)
+        is_ignored = False
+        for ignored in ignored_authors:
+            if ignored in a:
+                is_ignored = True
+                break
+        if is_ignored:
+            continue
+            
+        filtered_authors.append(a)
+    
+    reviewers = prompt_reviewers(filtered_authors)
 
     # --- 3. Execution Loop for Targets ---
     
