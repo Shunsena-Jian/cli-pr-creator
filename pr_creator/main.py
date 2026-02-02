@@ -141,14 +141,18 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
             
         elif "Parent Hotfix -> develop" in stage:
              # Source must be parent hotfix (hotfix/0.0.0) without extra dash suffix
-             # If user is on child, we should suggest parent
-             if "-" in source and source.startswith("hotfix/"):
-                  # Suggest stripping suffix
-                  parent_guess = source.split("-", 1)[0]
-                  if parent_guess in remote_branches:
-                       source = parent_guess
-                  else:
-                       # Parent not found? prompt
+             is_valid_parent = source.startswith("hotfix/") and "-" not in source.replace("hotfix/", "")
+             
+             if not is_valid_parent:
+                  if "-" in source and source.startswith("hotfix/"):
+                       # Try stripping suffix
+                       parent_guess = source.split("-", 1)[0]
+                       if parent_guess in remote_branches:
+                            source = parent_guess
+                            is_valid_parent = True
+                  
+                  if not is_valid_parent:
+                       # Prompt from list
                        candidates = [b for b in remote_branches if b.startswith("hotfix/") and "-" not in b.replace("hotfix/", "")]
                        if candidates:
                             source = select_from_list("Select Parent Hotfix Branch:", candidates)
@@ -159,14 +163,21 @@ def prompt_strategy(current_branch: str, remote_branches: list[str]) -> tuple[st
              
         elif "Parent Hotfix -> alpha" in stage:
              # Similar check
-             if "-" in source and source.startswith("hotfix/"):
-                  parent_guess = source.split("-", 1)[0]
-                  if parent_guess in remote_branches:
-                       source = parent_guess
-                  else:
+             is_valid_parent = source.startswith("hotfix/") and "-" not in source.replace("hotfix/", "")
+             
+             if not is_valid_parent:
+                  if "-" in source and source.startswith("hotfix/"):
+                       parent_guess = source.split("-", 1)[0]
+                       if parent_guess in remote_branches:
+                            source = parent_guess
+                            is_valid_parent = True
+                  
+                  if not is_valid_parent:
                        candidates = [b for b in remote_branches if b.startswith("hotfix/") and "-" not in b.replace("hotfix/", "")]
                        if candidates:
                             source = select_from_list("Select Parent Hotfix Branch:", candidates)
+                       else:
+                            print_colored("Warning: No clean parent hotfix branch found.", "yellow")
              
              return "Hotfix: Parent->Alpha/Beta", source, ["alpha_placeholder", "beta_placeholder"]
 
