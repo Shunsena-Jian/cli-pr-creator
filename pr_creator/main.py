@@ -1,6 +1,6 @@
 import sys
 from .utils import print_colored, run_cmd, normalize_jira_link
-from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_authors, get_current_branch, get_commits_between
+from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_authors, get_current_branch, get_commits_between, get_current_user_email
 from .github import check_existing_pr, create_pr
 from .ui import select_from_list, get_multiline_input, prompt_reviewers
 from .config import load_config
@@ -111,6 +111,11 @@ def main():
 
     # Reviewers
     authors = get_authors()
+    current_email = get_current_user_email()
+    if current_email:
+        # Filter out current user if email matches
+        authors = [a for a in authors if current_email not in a]
+        
     reviewers = prompt_reviewers(authors)
 
     # --- 3. Execution Loop for Targets ---

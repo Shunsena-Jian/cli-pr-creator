@@ -4,7 +4,7 @@ import json
 import re
 import subprocess
 from .utils import run_cmd, print_colored
-
+from .config import load_config
 def check_existing_pr(source_branch: str, target_branch: str) -> bool:
     """Check if an open PR already exists using 'gh'. Returns True if exists."""
     if shutil.which("gh") is None:
@@ -35,16 +35,28 @@ def check_existing_pr(source_branch: str, target_branch: str) -> bool:
         return False
 
 def resolve_handle(git_identity: str) -> str:
-    """Resolve 'Name <email>' to GitHub username via gh api."""
+    """Resolve 'Name <email>' to GitHub username via config or gh api. Returns None if not found."""
     email = None
+    # Handle "Name <email>" format
     if "<" in git_identity and ">" in git_identity:
         m = re.search(r'<([^>]+)>', git_identity)
         if m:
             email = m.group(1)
+    # Handle raw email format
+    elif "@" in git_identity:
+        email = git_identity.strip()
             
     if not email:
+        # If it doesn't look like an email, assume it's already a handle or name
         return git_identity
+    
+    # 1. Check Config Map
+    config = load_config()
+    user_map = config.get("github_user_map", {})
+    if email in user_map:
+        return user_map[email]
         
+    # 2. Try GH API
     try:
         cmd = ["gh", "api", f"search/users?q={email}", "--jq", ".items[0].login"]
         result = run_cmd(cmd, capture=True, check=False)
@@ -53,7 +65,14 @@ def resolve_handle(git_identity: str) -> str:
             return handle
     except Exception:
         pass
-    return email 
+    
+    # 3. Prompt user (Final Fallback)
+    print_colored(f"Could not automatically resolve GitHub username for email: {email}", "yellow")
+    user_input = input(f"Please enter GitHub username for {email} (or leave empty to skip): ").strip()
+    if user_input:
+        return user_input
+    
+    return None 
 
 def create_pr(source: str, target: str, title: str, body: str, reviewers: list[str] = None):
     """
@@ -70,7 +89,10 @@ def create_pr(source: str, target: str, title: str, body: str, reviewers: list[s
     if reviewers:
          for r in reviewers:
             handle = resolve_handle(r)
-            cmd.extend(["--reviewer", handle])
+            if handle:
+                cmd.extend(["--reviewer", handle])
+            else:
+                print_colored(f"Warning: Could not resolve GitHub handle for '{r}'. Skipping.", "yellow")
 
     print_colored("Generated Command:", "cyan")
     # Masking body for display brevity if needed, but here we just show it all or summary

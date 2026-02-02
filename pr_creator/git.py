@@ -69,3 +69,10 @@ def get_commits_between(base: str, head: str) -> list[str]:
     except subprocess.CalledProcessError:
         return []
 
+def get_current_user_email() -> str:
+    """Get the current git user's email."""
+    try:
+        result = run_cmd(["git", "config", "user.email"], capture=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return ""

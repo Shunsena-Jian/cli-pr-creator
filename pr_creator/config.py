@@ -16,6 +16,7 @@ def load_config() -> Dict[str, Any]:
         "default_target_branch": "main",
         "jira_project_keys": [],
         "reviewer_groups": {},
+        "github_user_map": {},
         "jira_base_url": "https://qualitytrade.atlassian.net/browse/"
     }
 
