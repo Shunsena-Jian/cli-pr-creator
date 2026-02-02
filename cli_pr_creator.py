@@ -266,16 +266,16 @@ def main():
             if selected_reviewers:
                 print_colored(f"Current reviewers: {', '.join(selected_reviewers)}", "green")
             
-        user_input = input("\nType reviewer name/number to add (Press Enter to finish): ").strip()
-        
-        if not user_input:
-             # Stop if empty (Enter pressed directly)
-             break
-
-        # Legacy 'd' check just in case, or list
-        if user_input.lower() in ('d', 'done'):
-            break
+            user_input = input("\nType reviewer name/number to add (Press Enter to finish): ").strip()
             
+            if not user_input:
+                 # Stop if empty (Enter pressed directly)
+                 break
+
+            # Legacy 'd' check just in case, or list
+            if user_input.lower() in ('d', 'done'):
+                break
+                
             if user_input.lower() in ('l', 'list'):
                  for idx, a in enumerate(available_authors):
                      if idx >= 20: 
