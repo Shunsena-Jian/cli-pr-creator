@@ -11,11 +11,23 @@ export async function runPythonScript(
 ): Promise<any> {
   const scriptPath = path.join(environment.assetsPath, "pr_engine.py");
 
+  const finalArgs = [...args];
+  if (cwd) {
+    finalArgs.push(cwd);
+  }
+
   try {
     const { stdout, stderr } = await execFileAsync(
       "python3",
-      [scriptPath, ...args],
-      { cwd },
+      [scriptPath, ...finalArgs],
+      {
+        cwd,
+        env: {
+          ...process.env,
+          PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${process.env.PATH}`,
+        },
+        maxBuffer: 10 * 1024 * 1024,
+      },
     );
     if (stderr && !stdout) {
       console.warn("Python stderr:", stderr);

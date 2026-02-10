@@ -6,13 +6,15 @@ def is_git_repo() -> bool:
     try:
         run_cmd(["git", "rev-parse", "--is-inside-work-tree"], capture=True)
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        import sys
+        print(f"DEBUG: is_git_repo failed: {e}", file=sys.stderr)
         return False
 
 def fetch_latest_branches():
     """Fetch latest branches from origin."""
     try:
-        run_cmd(["git", "fetch", "origin"], check=False, capture=True)
+        run_cmd(["git", "fetch", "--all", "--prune"], check=False, capture=True)
     except Exception:
         pass
 

@@ -225,21 +225,38 @@ export default function Command() {
       const result = await runPythonScript(args, selectedRepoPath || undefined);
 
       if (result.success) {
-        toast.style = Toast.Style.Success;
-        toast.title = "PR(s) created successfully!";
-
         const successResults = result.results.filter((r: any) => r.url);
+        const skippedResults = result.results.filter((r: any) => r.skipped);
+        const failedResults = result.results.filter((r: any) => r.error);
+
         if (successResults.length > 0) {
+          toast.style = Toast.Style.Success;
+          toast.title = "PR(s) created successfully!";
           toast.message = `Created ${successResults.length} PR(s)`;
-          const firstUrl = successResults[0].url;
+          successResults.forEach((r: any) => {
+            open(r.url);
+          });
+
           toast.primaryAction = {
-            title: "Open PR",
+            title: "Open PRs",
             onAction: () => {
-              open(firstUrl);
+              successResults.forEach((r: any) => {
+                open(r.url);
+              });
             },
           };
+        } else if (failedResults.length > 0) {
+          toast.style = Toast.Style.Failure;
+          toast.title = "Failed to create PR";
+          toast.message = failedResults.map((r: any) => `${r.target}: ${r.error}`).join("\n");
+        } else if (skippedResults.length > 0) {
+          toast.style = Toast.Style.Success;
+          toast.title = "Action Complete";
+          toast.message = skippedResults.map((r: any) => `${r.target}: ${r.reason}`).join("\n");
         } else {
-          toast.message = "No new PRs created (maybe they already exist)";
+          toast.style = Toast.Style.Success;
+          toast.title = "Done";
+          toast.message = "No new PRs were needed.";
         }
       } else {
         throw new Error(result.error || "Unknown error");
