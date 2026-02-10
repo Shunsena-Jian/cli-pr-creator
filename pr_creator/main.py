@@ -98,15 +98,16 @@ def main():
         jira_section = "None"
         title_auto = ""
 
-    # Title & Description
-    # If tickets are present, default title is empty per user request
-    default_title = "" if ticket_ids else title_auto
-    print_colored(f"\nTitle (Default: {default_title})", "cyan")
-    t_input = input("> ").strip()
-    final_title_base = t_input if t_input else default_title
-    
     # Construct the ticket prefix for the title: [ID1][ID2]...
     ticket_prefix = "".join([f"[{tid}]" for tid in ticket_ids])
+
+    # Title & Description
+    if ticket_ids:
+        print_colored(f"Included Tickets: {ticket_prefix}", "green")
+
+    print_colored(f"\nDescriptive Title (Default: {title_auto})", "cyan")
+    t_input = input("> ").strip()
+    final_title_base = t_input if t_input else title_auto
     
     # Description from commits
     commits = []
