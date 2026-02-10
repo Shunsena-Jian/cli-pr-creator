@@ -1,6 +1,10 @@
 import subprocess
 import re
 
+def clear_screen():
+    """Clear the terminal screen."""
+    print("\033[H\033[J", end="")
+
 def print_colored(text: str, color: str = "green"):
     """
     Simple ANSI color printer. 

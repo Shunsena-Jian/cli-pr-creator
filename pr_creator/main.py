@@ -1,5 +1,5 @@
 import sys
-from .utils import print_colored, run_cmd, normalize_jira_link, extract_jira_id
+from .utils import print_colored, normalize_jira_link, extract_jira_id, clear_screen
 from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_current_branch, get_commits_between, get_current_user_email
 from .github import check_existing_pr, create_pr, get_contributors, get_current_username
 from .ui import select_from_list, get_multiline_input, prompt_reviewers
@@ -8,9 +8,38 @@ from .naming import parse_branch_name
 from .strategy import prompt_strategy, resolve_placeholder_targets
 from .templates import PR_TEMPLATE
 
+def print_header(source=None, targets=None, strategy=None, tickets=None, title=None, description=None, reviewers=None):
+    clear_screen()
+    print_colored("QualityTrade Asia Pull Request Creator", "green")
+    print_colored("="*40, "green")
+    
+    if source:
+        print(f"Source   : {source}")
+    if targets:
+        print(f"Targets  : {', '.join(targets)}")
+    if strategy:
+        print(f"Strategy : {strategy}")
+    if tickets:
+        print(f"Tickets  : {', '.join(tickets)}")
+    if title is not None:
+        print(f"Title    : {title}")
+    if description:
+        # Show summary of description
+        lines = description.strip().split("\n")
+        desc_sum = lines[0][:50] + ("..." if len(lines) > 1 or len(lines[0]) > 50 else "")
+        print(f"Desc     : {desc_sum}")
+    if reviewers:
+        # Show count or first few if many
+        rev_str = ", ".join(reviewers)
+        if len(rev_str) > 50:
+             rev_str = f"{len(reviewers)} selected"
+        print(f"Reviewers: {rev_str}")
+        
+    if any([source, targets, strategy, tickets, title, description, reviewers]):
+        print_colored("-" * 40, "green")
+
 def main():
-    print_colored("Welcome to this CLI PR Creator", "green")
-    print_colored("="*30, "green")
+    print_header()
 
     if not is_git_repo():
         print_colored("Error: Not a git repository.", "red")
@@ -27,8 +56,6 @@ def main():
     # --- 1. Determine Context & Strategy ---
     
     source_branch = current_branch
-    
-    print(f"Current Branch (Source): {source_branch}")
     
     strategy_name, source_branch, target_candidates = prompt_strategy(source_branch, remote_branches)
     
@@ -55,6 +82,9 @@ def main():
 
         t_choice = select_from_list(f"Target Branch? (Default: {default_target})", remote_branches)
         targets = [t_choice]
+
+    # Redraw with context
+    print_header(source_branch, targets, strategy_name)
 
     # --- 2. Shared Metadata ---
     # We collect Title/Desc/Tickets ONCE, then apply to all PRs (maybe varying title slightly?)
@@ -98,6 +128,9 @@ def main():
         jira_section = "None"
         title_auto = ""
 
+    # Refresh header with JIRA info
+    print_header(source_branch, targets, strategy_name, tickets=ticket_ids)
+
     # Construct the ticket prefix for the title: [ID1][ID2]...
     ticket_prefix = "".join([f"[{tid}]" for tid in ticket_ids])
 
@@ -117,6 +150,9 @@ def main():
     # If tickets exist, default is empty (no extra title). If no tickets, default is title_auto.
     final_title_base = t_input if t_input else (title_auto if not ticket_ids else "")
     
+    # Refresh header with Title
+    print_header(source_branch, targets, strategy_name, tickets=ticket_ids, title=final_title_base)
+    
     # Description from commits
     commits = []
     if targets:
@@ -135,6 +171,14 @@ def main():
         final_description = "\n".join([f"- {line}" for line in d_lines])
     else:
         final_description = desc_auto
+
+    # Redraw before reviewers
+    print_header(
+        source_branch, targets, strategy_name, 
+        tickets=ticket_ids, 
+        title=final_title_base, 
+        description=final_description
+    )
 
     # Reviewers
     authors = get_contributors()
@@ -165,23 +209,72 @@ def main():
     
     reviewers = prompt_reviewers(filtered_authors)
 
-    # --- 3. Execution Loop for Targets ---
+    # --- 3. Compilation & Batch Execution ---
     
+    all_prs = []
     for target in targets:
-        print_colored(f"\n--- Preparing PR for {target} ---", "cyan")
-        
-        # Check existing
-        if check_existing_pr(source_branch, target):
-            continue
-        
-        # Construct Title: [ID1][ID2][Title][source] -> [target]
-        # or if no title: [ID1][ID2][source] -> [target]
         title_part = f"[{final_title_base}]" if final_title_base else ""
         final_title = f"{ticket_prefix}{title_part}[{source_branch}] -> [{target}]"
-        
-        # Template
         body = PR_TEMPLATE.format(tickets=jira_section, description=final_description)
-        create_pr(source_branch, target, final_title, body, reviewers)
+        
+        all_prs.append({
+            "target": target,
+            "title": final_title,
+            "body": body,
+            "reviewers": reviewers
+        })
+
+    # Final Redraw with full context
+    print_header(
+        source=source_branch, 
+        targets=targets, 
+        strategy=strategy_name, 
+        tickets=ticket_ids, 
+        title=final_title_base, 
+        description=final_description, 
+        reviewers=reviewers
+    )
+
+    print_colored(f"\nReady to create {len(all_prs)} Pull Request(s):", "cyan")
+    for pr in all_prs:
+        print(f"  -> {pr['target']}: {pr['title']}")
+    
+    confirm = input("\nCreate these PRs? [Y/n] ").strip().lower()
+    if confirm == 'n':
+        print_colored("Aborted.", "red")
+        sys.exit(0)
+
+    # Execution
+    created_urls = []
+    for pr in all_prs:
+        print_colored(f"\n--- Processing {pr['target']} ---", "cyan")
+        
+        # Check existing
+        if check_existing_pr(source_branch, pr['target']):
+            continue
+            
+        url = create_pr(source_branch, pr['target'], pr['title'], pr['body'], pr['reviewers'], skip_confirm=True)
+        if url:
+            created_urls.append((pr['target'], url))
+
+    # Final summary display
+    if created_urls:
+        print_header(
+            source=source_branch, 
+            targets=targets, 
+            strategy=strategy_name, 
+            tickets=ticket_ids, 
+            title=final_title_base, 
+            description=final_description, 
+            reviewers=reviewers
+        )
+        print_colored("\n" + "="*50, "green")
+        print_colored("ALL PULL REQUESTS COMPLETED!", "green")
+        for target, url in created_urls:
+            print_colored(f"  {target.ljust(15)}: {url}", "bold")
+        print_colored("="*50 + "\n", "green")
+    else:
+        print_colored("\nNo PRs were created.", "yellow")
 
 if __name__ == "__main__":
     main()
