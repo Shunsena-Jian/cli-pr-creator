@@ -4,6 +4,10 @@ A smart command-line interface tool to streamline and automate the creation of G
 
 ## Features
 
+- **Interactive CLI with Screen Redrawing**:
+  - **Persistent Header**: Keeps track of your selected Source, Targets, Strategy, Tickets, Title, and Reviewers at the top of the terminal.
+  - **Clean Transitions**: Automatically clears menus and intermediate prompts once they are completed to keep the interface focused.
+  - **Batch Execution**: Configures all PRs first, shows a summary and a single confirmation prompt before creating them all at once.
 - **Branching Strategy Support**: Built-in logic for standard Git flow strategies:
   - **Release Strategy**: Handles flow from Feature -> Develop/Staging -> Alpha -> Beta -> Live.
   - **Hotfix Strategy**: Handles flow from Child Hotfix -> Parent Hotfix -> All Environments.
@@ -17,10 +21,10 @@ A smart command-line interface tool to streamline and automate the creation of G
   - Generates PR titles in the format: `[jira ticket id 1][jira ticket id 2][source branch] -> [target branch]`.
   - Populates PR descriptions with commit messages between source and target (defaults to **blank** if no new commits are found).
   - Formats JIRA links automatically as clickable labels in the PR body.
-- **Interactive CLI**:
+- **Smart UI Utilities**:
   - Fuzzy search and autocomplete for branch selection.
-  - Autocomplete for choosing reviewers from git history.
-  - Multi-line input support for descriptions.
+  - Autocomplete for choosing reviewers from GitHub contributors.
+  - Multi-line input for descriptions that collapses into a summary after entry.
 - **Configurable**: Customize default targets, JIRA URLs, and more via a JSON config file.
 
 ## Prerequisites
@@ -69,8 +73,11 @@ create-pr
 4. **Metadata Review**:
    - **Title**: Shows a preview of the clean `[IDs][Source] -> [Target]` pattern. You can optionally add a descriptive title suffix.
    - **Description**: Review auto-generated commits or enter a custom description. Defaults to blank if no commits are found.
-5. **Reviewers**: Interactively select reviewers from a list of authors found in the git log.
-6. **Execution**: The tool constructs and previews the `gh pr create` command before running it.
+5. **Reviewers**: Interactively select reviewers from a list of GitHub contributors.
+6. **Execution**:
+   - The **Persistent Header** at the top updates after every step to show your current configuration.
+   - A **Batch Summary** is shown before any PRs are created.
+   - You confirm once, and the tool handles the creation of all PRs (one or many) in sequence, displaying a final success dashboard.
 
 ## Configuration
 
