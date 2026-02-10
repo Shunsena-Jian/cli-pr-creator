@@ -1,4 +1,5 @@
 import subprocess
+import re
 
 def print_colored(text: str, color: str = "green"):
     """
@@ -20,14 +21,30 @@ def run_cmd(cmd: list[str], check: bool = True, capture: bool = False) -> subpro
     """Run a subprocess command safely."""
     return subprocess.run(cmd, check=check, capture_output=capture, text=True)
 
-def normalize_jira_link(ticket_id: str, base_url: str) -> str:
-    """Convert ticket ID (PROJ-123) to a markdown link if not already a URL."""
-    ticket_id = ticket_id.strip()
-    if not ticket_id:
-        return ""
-    if ticket_id.startswith("http"):
-        return ticket_id
+def extract_jira_id(input_str: str) -> str:
+    """Extract JIRA ticket ID (e.g. PROJ-123) from a string or URL."""
+    input_str = input_str.strip()
+    # Check if it's a URL
+    if input_str.startswith("http"):
+        # Match something like /browse/PROJ-123 or just the end of URL
+        match = re.search(r'([A-Z]+-\d+)', input_str, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+    
+    # If not a URL or no ID found in URL, check if it's just a ticket ID
+    match = re.search(r'([A-Z]+-\d+)', input_str, re.IGNORECASE)
+    if match:
+        return match.group(1).upper()
+    
+    return input_str
+
+def normalize_jira_link(ticket_input: str, base_url: str) -> str:
+    """Convert ticket ID or URL to a markdown link with ID as label."""
+    ticket_id = extract_jira_id(ticket_input)
+    
     # Ensure base_url ends with slash
     if not base_url.endswith("/"):
         base_url += "/"
-    return f"[{ticket_id}]({base_url}{ticket_id})"
+        
+    url = ticket_input if ticket_input.startswith("http") else f"{base_url}{ticket_id}"
+    return f"[{ticket_id}]({url})"
