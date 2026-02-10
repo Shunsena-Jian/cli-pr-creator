@@ -101,13 +101,21 @@ def main():
     # Construct the ticket prefix for the title: [ID1][ID2]...
     ticket_prefix = "".join([f"[{tid}]" for tid in ticket_ids])
 
-    # Title & Description
-    if ticket_ids:
-        print_colored(f"Included Tickets: {ticket_prefix}", "green")
+    # Title Preview and Input
+    preview_target = targets[0] if targets else "target"
+    default_full = f"{ticket_prefix}[{source_branch}] -> [{preview_target}]"
+    
+    print_colored("\n--- Title Configuration ---", "cyan")
+    print_colored(f"Default Title Style: {default_full}", "green")
+    if len(targets) > 1:
+        print_colored(f"(Will be applied to {len(targets)} targets)", "green")
 
-    print_colored(f"\nDescriptive Title (Default: {title_auto})", "cyan")
+    print_colored(f"\nDescriptive Title / Extension (Default: {title_auto if not ticket_ids else 'None'})", "cyan")
+    print_colored("(Press Enter to keep the default pattern above, or type to add a descriptive title)", "bold")
     t_input = input("> ").strip()
-    final_title_base = t_input if t_input else title_auto
+    
+    # If tickets exist, default is empty (no extra title). If no tickets, default is title_auto.
+    final_title_base = t_input if t_input else (title_auto if not ticket_ids else "")
     
     # Description from commits
     commits = []
