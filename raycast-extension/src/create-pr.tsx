@@ -24,12 +24,25 @@ interface Preferences {
 const REPO_PATH_KEY = "selected_repo_path";
 
 function useRepos() {
-  const preferences = getPreferenceValues<Preferences>();
+  const [preferences, setPreferences] = useState<Preferences | null>(null);
+
+  useEffect(() => {
+    try {
+      const prefs = getPreferenceValues<Preferences>();
+      setPreferences(prefs);
+    } catch (e) {
+      console.error("Failed to load preferences:", e);
+    }
+  }, []);
+
   return useMemo(() => {
-    const baseDir = preferences.projectsDirectory?.replace("~", process.env.HOME || "");
-    if (!baseDir || !fs.existsSync(baseDir)) return [];
+    if (!preferences?.projectsDirectory) return [];
+
+    const baseDir = preferences.projectsDirectory.replace("~", process.env.HOME || "");
 
     try {
+      if (!fs.existsSync(baseDir)) return [];
+
       return fs
         .readdirSync(baseDir)
         .filter((file) => {
@@ -45,10 +58,10 @@ function useRepos() {
           path: path.join(baseDir, file),
         }));
     } catch (e) {
-      console.error(e);
+      console.error("Failed to read repositories:", e);
       return [];
     }
-  }, [preferences.projectsDirectory]);
+  }, [preferences?.projectsDirectory]);
 }
 
 export default function Command() {
@@ -72,6 +85,20 @@ export default function Command() {
   // Preview States
   const [preview, setPreview] = useState<{ title: string; body: string } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Ensure current branch is in the source options
+  const allSourceOptions = useMemo(() => {
+    const branches = [...(data?.remoteBranches || [])];
+    if (data?.currentBranch && !branches.includes(data.currentBranch)) {
+      branches.unshift(data.currentBranch);
+    }
+    return branches;
+  }, [data?.remoteBranches, data?.currentBranch]);
+
+  // Combine fetched remote branches with any custom ones user added
+  const allTargetOptions = Array.from(new Set([...(data?.remoteBranches || []), ...targetBranches]));
+  // Combine fetched contributors with any custom reviewers user added
+  const allReviewerOptions = Array.from(new Set([...(data?.contributors || []), ...reviewers]));
 
   // Tracks if user has manually edited description to avoid overwriting it
   const isDescriptionDirty = useRef(false);
@@ -292,10 +319,7 @@ export default function Command() {
 
   if (!data) return null;
 
-  // Combine fetched remote branches with any custom ones user added
-  const allTargetOptions = Array.from(new Set([...(data.remoteBranches || []), ...targetBranches]));
-  // Combine fetched contributors with any custom reviewers user added
-  const allReviewerOptions = Array.from(new Set([...(data.contributors || []), ...reviewers]));
+  if (!data) return null;
 
   return (
     <Form
@@ -325,7 +349,7 @@ export default function Command() {
       </Form.Dropdown>
 
       <Form.Dropdown id="source" title="Source Branch" value={sourceBranch} onChange={setSourceBranch}>
-        {data.remoteBranches.map((b) => (
+        {allSourceOptions.map((b) => (
           <Form.Dropdown.Item key={b} value={b} title={b === data.currentBranch ? `${b} (Current)` : b} />
         ))}
       </Form.Dropdown>
