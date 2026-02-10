@@ -32,7 +32,7 @@ def get_remote_branches() -> list[str]:
                 line = line[len("origin/"):]
             branches.append(line)
         return branches
-    except subprocess.CompletedProcess:
+    except subprocess.CalledProcessError:
         return []
 
 def get_current_branch() -> str:
