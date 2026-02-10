@@ -1,5 +1,5 @@
 import sys
-from .utils import print_colored, run_cmd, normalize_jira_link
+from .utils import print_colored, run_cmd, normalize_jira_link, extract_jira_id
 from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_current_branch, get_commits_between, get_current_user_email
 from .github import check_existing_pr, create_pr, get_contributors, get_current_username
 from .ui import select_from_list, get_multiline_input, prompt_reviewers
@@ -59,7 +59,7 @@ def main():
     # --- 2. Shared Metadata ---
     # We collect Title/Desc/Tickets ONCE, then apply to all PRs (maybe varying title slightly?)
     
-    ticket_auto, title_auto = parse_branch_name(source_branch)
+    tickets_auto, title_auto = parse_branch_name(source_branch)
     
     # JIRA Flow
     print_colored("\n--- JIRA Details ---", "cyan")
@@ -69,14 +69,23 @@ def main():
     j_choice = input("Select [1-3]: ").strip()
     
     jira_section = ""
-    
+    ticket_ids = tickets_auto[:]
+
     if j_choice == "1":
-        ids = get_multiline_input("Enter JIRA Ticket IDs (e.g. PROJ-123):")
-        links = [normalize_jira_link(t, jira_base_url) for t in ids]
+        ids_input = get_multiline_input("Enter JIRA Ticket IDs or URLs (e.g. PROJ-123):")
+        new_ids = []
+        links = []
+        for t in ids_input:
+            if not t.strip(): continue
+            tid = extract_jira_id(t)
+            new_ids.append(tid)
+            links.append(normalize_jira_link(t, jira_base_url))
+        
         jira_section = "\n".join(links)
-        # Update ticket_auto if empty
-        if not ticket_auto and ids:
-            ticket_auto = ",".join(ids)
+        # Add new IDs to our list, avoiding duplicates
+        for tid in new_ids:
+            if tid not in ticket_ids:
+                ticket_ids.append(tid)
             
     elif j_choice == "2":
         r_title = input("Release Title: ").strip()
@@ -89,21 +98,38 @@ def main():
         jira_section = "None"
         title_auto = ""
 
-    # Title & Description
-    print_colored(f"\nTitle (Default: {title_auto})", "cyan")
+    # Construct the ticket prefix for the title: [ID1][ID2]...
+    ticket_prefix = "".join([f"[{tid}]" for tid in ticket_ids])
+
+    # Title Preview and Input
+    preview_target = targets[0] if targets else "target"
+    default_full = f"{ticket_prefix}[{source_branch}] -> [{preview_target}]"
+    
+    print_colored("\n--- Title Configuration ---", "cyan")
+    print_colored(f"Default Title Style: {default_full}", "green")
+    if len(targets) > 1:
+        print_colored(f"(Will be applied to {len(targets)} targets)", "green")
+
+    print_colored(f"\nDescriptive Title / Extension (Default: {title_auto if not ticket_ids else 'None'})", "cyan")
+    print_colored("(Press Enter to keep the default pattern above, or type to add a descriptive title)", "bold")
     t_input = input("> ").strip()
-    final_title_base = t_input if t_input else title_auto
+    
+    # If tickets exist, default is empty (no extra title). If no tickets, default is title_auto.
+    final_title_base = t_input if t_input else (title_auto if not ticket_ids else "")
     
     # Description from commits
     commits = []
     if targets:
          commits = get_commits_between(targets[0], source_branch)
     
-    desc_auto = "\n".join([f"- {c}" for c in commits]) if commits else "No description provided."
+    desc_auto = "\n".join([f"- {c}" for c in commits]) if commits else ""
     
     print_colored("\nDescription (Enter to keep auto-generated)", "cyan")
     if desc_auto:
         print(f"Current: \n{desc_auto}")
+    else:
+        print("(No commits found - description will be blank by default)")
+
     d_lines = get_multiline_input("New description?")
     if d_lines:
         final_description = "\n".join([f"- {line}" for line in d_lines])
@@ -148,11 +174,10 @@ def main():
         if check_existing_pr(source_branch, target):
             continue
         
-        # Construct Title
-        if final_title_base:
-            final_title = f"[{final_title_base}][{source_branch}] -> [{target}]"
-        else:
-            final_title = f"[{source_branch}] -> [{target}]"
+        # Construct Title: [ID1][ID2][Title][source] -> [target]
+        # or if no title: [ID1][ID2][source] -> [target]
+        title_part = f"[{final_title_base}]" if final_title_base else ""
+        final_title = f"{ticket_prefix}{title_part}[{source_branch}] -> [{target}]"
         
         # Template
         body = PR_TEMPLATE.format(tickets=jira_section, description=final_description)
