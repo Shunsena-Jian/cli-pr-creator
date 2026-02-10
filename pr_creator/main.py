@@ -271,7 +271,7 @@ def run_headless(args):
         jira_links.append(normalize_jira_link(t, jira_base_url))
     jira_section = "\n".join(jira_links) if jira_links else "None"
     
-    ticket_prefix = "".join([f"[{tid}]" for tid in tickets])
+    ticket_prefix = "".join([f"[{extract_jira_id(tid)}]" for tid in tickets])
     
     results = []
     for target in targets:
@@ -309,7 +309,7 @@ def output_preview(args):
         jira_links.append(normalize_jira_link(t, jira_base_url))
     jira_section = "\n".join(jira_links) if jira_links else "None"
     
-    ticket_prefix = "".join([f"[{tid}]" for tid in tickets])
+    ticket_prefix = "".join([f"[{extract_jira_id(tid)}]" for tid in tickets])
     title_part = f"[{title_base}]" if title_base else ""
     final_title = f"{ticket_prefix}{title_part}[{source}] -> [{target}]"
     final_body = PR_TEMPLATE.format(tickets=jira_section, description=description_base)
