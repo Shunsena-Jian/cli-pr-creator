@@ -55,7 +55,7 @@ export default function Command() {
   const repos = useRepos();
   const [selectedRepoPath, setSelectedRepoPath] = useState<string | null>(null);
   const [isChangingRepo, setIsChangingRepo] = useState(false);
-  const { data, isLoading } = useGitData(selectedRepoPath || undefined);
+  const { data, isLoading, error } = useGitData(selectedRepoPath || undefined);
 
   // Form States
   const [sourceBranch, setSourceBranch] = useState("");
@@ -272,12 +272,15 @@ export default function Command() {
     return <SelectRepo onSelect={handleRepoSelect} />;
   }
 
-  if (isLoading) return <Detail isLoading={true} />;
+  // Show loading during fetch or when transition state causes data/error gap
+  if (isLoading || (!data && !error)) {
+    return <Detail isLoading={true} />;
+  }
 
-  if (!data || (data as any).error) {
+  if (error || (data as any)?.error) {
     return (
       <Detail
-        markdown={`# Error\n${(data as any)?.error || "Failed to load git data."}`}
+        markdown={`# Error\n${error || (data as any)?.error || "Failed to load git data."}`}
         actions={
           <ActionPanel>
             <Action title="Change Repository" onAction={() => setIsChangingRepo(true)} />
@@ -286,6 +289,8 @@ export default function Command() {
       />
     );
   }
+
+  if (!data) return null;
 
   // Combine fetched remote branches with any custom ones user added
   const allTargetOptions = Array.from(new Set([...(data.remoteBranches || []), ...targetBranches]));

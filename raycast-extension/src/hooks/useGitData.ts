@@ -13,6 +13,7 @@ export interface GitData {
 export function useGitData(repoPath?: string) {
   const [data, setData] = useState<GitData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -20,10 +21,19 @@ export function useGitData(repoPath?: string) {
         setIsLoading(false);
         return;
       }
+
+      setIsLoading(true);
+      setError(null);
+
       try {
         const result = await runPythonScript(["--get-data"], repoPath);
-        setData(result);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setData(result);
+        }
       } catch (error) {
+        setError(String(error));
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to fetch git data",
@@ -36,5 +46,5 @@ export function useGitData(repoPath?: string) {
     fetchData();
   }, [repoPath]);
 
-  return { data, isLoading };
+  return { data, isLoading, error };
 }
