@@ -76,9 +76,10 @@ def resolve_handle(git_identity: str) -> str:
     
     return None 
 
-def create_pr(source: str, target: str, title: str, body: str, reviewers: list[str] = None):
+def create_pr(source: str, target: str, title: str, body: str, reviewers: list[str] = None, skip_confirm: bool = False) -> str:
     """
     Constructs and executes the gh pr create command.
+    Returns the URL of the created PR, or None if failed/skipped.
     """
     cmd = [
         "gh", "pr", "create",
@@ -96,30 +97,29 @@ def create_pr(source: str, target: str, title: str, body: str, reviewers: list[s
             else:
                 print_colored(f"Warning: Could not resolve GitHub handle for '{r}'. Skipping.", "yellow")
 
-    print_colored("Generated Command:", "cyan")
-    # Masking body for display brevity if needed, but here we just show it all or summary
-    # Just show the command as a string roughly
-    cmd_str = f"gh pr create --base {target} --head {source} --title \"{title}\" ..."
-    print(cmd_str)
-    
-    if shutil.which("gh"):
+    if not shutil.which("gh"):
+        print_colored("gh CLI not found.", "yellow")
+        return None
+
+    if not skip_confirm:
+        print_colored("\nGenerated Command Preview:", "cyan")
+        cmd_str = f"gh pr create --base {target} --head {source} --title \"{title}\" ..."
+        print(f"  {cmd_str}")
         user_conf = input(f"Create PR to {target}? [Y/n] ").strip().lower()
-        if user_conf != 'n':
-            try:
-                result = run_cmd(cmd, capture=True)
-                pr_url = result.stdout.strip()
-                print_colored("\n" + "!" * 50, "green")
-                print_colored(f"SUCCESS: Pull Request Created!", "green")
-                print_colored(f"URL: {pr_url}", "bold")
-                print_colored("!" * 50 + "\n", "green")
-            except subprocess.CalledProcessError as e:
-                print_colored(f"Command failed with exit code {e.returncode}", "red")
-                if e.stdout:
-                    print(e.stdout)
-                if e.stderr:
-                    print(e.stderr)
-    else:
-         print_colored("gh CLI not found.", "yellow")
+        if user_conf == 'n':
+            return None
+
+    try:
+        result = run_cmd(cmd, capture=True)
+        pr_url = result.stdout.strip()
+        print_colored(f"SUCCESS: PR created for {target}", "green")
+        print_colored(f"URL: {pr_url}", "bold")
+        return pr_url
+    except subprocess.CalledProcessError as e:
+        print_colored(f"Command failed with exit code {e.returncode} for target {target}", "red")
+        if e.stdout: print(e.stdout)
+        if e.stderr: print(e.stderr)
+        return None
 
 def get_contributors() -> list[str]:
     """
