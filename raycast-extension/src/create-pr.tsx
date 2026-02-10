@@ -272,6 +272,15 @@ export default function Command() {
               });
             },
           };
+
+          setSourceBranch(data?.currentBranch || "");
+          setTargetBranches([]);
+          setJiraDetails("");
+          setTitleExtension("");
+          setDescription("");
+          setReviewers([]);
+          setPreview(null);
+          isDescriptionDirty.current = false;
         } else if (failedResults.length > 0) {
           toast.style = Toast.Style.Failure;
           toast.title = "Failed to create PR";
