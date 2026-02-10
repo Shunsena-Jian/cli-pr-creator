@@ -9,8 +9,8 @@ from .strategy import prompt_strategy, resolve_placeholder_targets
 from .templates import PR_TEMPLATE
 
 def main():
-    print_colored("Welcome to this CLI PR Creator", "green")
-    print_colored("="*30, "green")
+    print_colored("QualityTrade Asia Pull Request Creator", "green")
+    print_colored("="*40, "green")
 
     if not is_git_repo():
         print_colored("Error: Not a git repository.", "red")

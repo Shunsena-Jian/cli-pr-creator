@@ -23,7 +23,8 @@ def check_existing_pr(source_branch: str, target_branch: str) -> bool:
         if prs:
             print_colored(f"\n[!] A PR already exists for {head} -> {base}:", "red")
             for pr in prs:
-                print_colored(f"- {pr.get('title')} ({pr.get('url')})", "yellow")
+                print_colored(f"- {pr.get('title')}", "yellow")
+                print_colored(f"  URL: {pr.get('url')}", "bold")
             print_colored("Skipping creation for this target.", "yellow")
             return True
         else:
@@ -105,9 +106,18 @@ def create_pr(source: str, target: str, title: str, body: str, reviewers: list[s
         user_conf = input(f"Create PR to {target}? [Y/n] ").strip().lower()
         if user_conf != 'n':
             try:
-                run_cmd(cmd)
+                result = run_cmd(cmd, capture=True)
+                pr_url = result.stdout.strip()
+                print_colored("\n" + "!" * 50, "green")
+                print_colored(f"SUCCESS: Pull Request Created!", "green")
+                print_colored(f"URL: {pr_url}", "bold")
+                print_colored("!" * 50 + "\n", "green")
             except subprocess.CalledProcessError as e:
                 print_colored(f"Command failed with exit code {e.returncode}", "red")
+                if e.stdout:
+                    print(e.stdout)
+                if e.stderr:
+                    print(e.stderr)
     else:
          print_colored("gh CLI not found.", "yellow")
 
