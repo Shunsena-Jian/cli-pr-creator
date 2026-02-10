@@ -1,0 +1,51 @@
+{
+    "name": "qualitytrade-pr-creator",
+    "title": "QualityTrade PR Creator",
+    "description": "Create PRs with JIRA integration and multi-target support",
+    "icon": "icon.png",
+    "author": "raycast",
+    "license": "MIT",
+    "commands": [
+        {
+            "name": "create-pr",
+            "title": "Create Pull Request",
+            "subtitle": "QualityTrade",
+            "description": "Open form to create a new PR",
+            "mode": "view"
+        }
+    ],
+    "preferences": [
+        {
+            "name": "projectsDirectory",
+            "title": "Projects Directory",
+            "description": "The directory where your git repositories are located",
+            "type": "directory",
+            "required": true
+        }
+    ],
+    "dependencies": {
+        "@raycast/api": "^1.104.5",
+        "@raycast/utils": "^1.18.1",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+    },
+    "devDependencies": {
+        "@raycast/eslint-config": "^1.0.11",
+        "@types/node": "20.8.10",
+        "@types/react": "19.0.10",
+        "@types/react-dom": "19.0.3",
+        "eslint": "^8.57.0",
+        "prettier": "^3.3.3",
+        "typescript": "^5.4.5"
+    },
+    "scripts": {
+        "build": "ray build -e dist",
+        "dev": "ray develop",
+        "fix-lint": "ray lint --fix",
+        "lint": "ray lint",
+        "publish": "npx @raycast/api@latest publish"
+    },
+    "overrides": {
+        "@types/react": "19.0.10"
+    }
+}
