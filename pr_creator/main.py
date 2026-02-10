@@ -122,11 +122,14 @@ def main():
     if targets:
          commits = get_commits_between(targets[0], source_branch)
     
-    desc_auto = "\n".join([f"- {c}" for c in commits]) if commits else "No description provided."
+    desc_auto = "\n".join([f"- {c}" for c in commits]) if commits else ""
     
     print_colored("\nDescription (Enter to keep auto-generated)", "cyan")
     if desc_auto:
         print(f"Current: \n{desc_auto}")
+    else:
+        print("(No commits found - description will be blank by default)")
+
     d_lines = get_multiline_input("New description?")
     if d_lines:
         final_description = "\n".join([f"- {line}" for line in d_lines])
