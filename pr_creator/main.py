@@ -1,5 +1,5 @@
 import sys
-from .utils import print_colored, run_cmd, normalize_jira_link, extract_jira_id
+from .utils import print_colored, normalize_jira_link, extract_jira_id, clear_screen
 from .git import is_git_repo, fetch_latest_branches, get_remote_branches, get_current_branch, get_commits_between, get_current_user_email
 from .github import check_existing_pr, create_pr, get_contributors, get_current_username
 from .ui import select_from_list, get_multiline_input, prompt_reviewers
@@ -8,9 +8,21 @@ from .naming import parse_branch_name
 from .strategy import prompt_strategy, resolve_placeholder_targets
 from .templates import PR_TEMPLATE
 
-def main():
+def print_header(source_branch=None, targets=None, strategy=None):
+    clear_screen()
     print_colored("QualityTrade Asia Pull Request Creator", "green")
     print_colored("="*40, "green")
+    if source_branch:
+        print(f"Source: {source_branch}")
+    if targets:
+        print(f"Targets: {', '.join(targets)}")
+    if strategy:
+        print(f"Strategy: {strategy}")
+    if any([source_branch, targets, strategy]):
+        print_colored("-" * 40, "green")
+
+def main():
+    print_header()
 
     if not is_git_repo():
         print_colored("Error: Not a git repository.", "red")
@@ -27,8 +39,6 @@ def main():
     # --- 1. Determine Context & Strategy ---
     
     source_branch = current_branch
-    
-    print(f"Current Branch (Source): {source_branch}")
     
     strategy_name, source_branch, target_candidates = prompt_strategy(source_branch, remote_branches)
     
@@ -55,6 +65,9 @@ def main():
 
         t_choice = select_from_list(f"Target Branch? (Default: {default_target})", remote_branches)
         targets = [t_choice]
+
+    # Redraw with context
+    print_header(source_branch, targets, strategy_name)
 
     # --- 2. Shared Metadata ---
     # We collect Title/Desc/Tickets ONCE, then apply to all PRs (maybe varying title slightly?)
@@ -98,6 +111,9 @@ def main():
         jira_section = "None"
         title_auto = ""
 
+    # Refresh header with potentially updated info (though targets/source stayed same)
+    print_header(source_branch, targets, strategy_name)
+
     # Construct the ticket prefix for the title: [ID1][ID2]...
     ticket_prefix = "".join([f"[{tid}]" for tid in ticket_ids])
 
@@ -135,6 +151,9 @@ def main():
         final_description = "\n".join([f"- {line}" for line in d_lines])
     else:
         final_description = desc_auto
+
+    # Redraw before reviewers
+    print_header(source_branch, targets, strategy_name)
 
     # Reviewers
     authors = get_contributors()
